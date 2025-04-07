@@ -55,9 +55,16 @@ const rawCookie2JSON = (cookie) => {
 };
 
 const checkInAndGetStatus = async (cookie) => {
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
+    const browser = await puppeteer.launch({
+        headless: true, // 无头浏览器
+        args: [
+            '--no-sandbox',          // 禁用沙盒
+            '--disable-setuid-sandbox',  // 禁用 setuid 沙盒
+            '--disable-dev-shm-usage'    // 避免使用共享内存
+        ]
+    });
 
+    const page = await browser.newPage();
     const cookieJSON = rawCookie2JSON(cookie);
     await page.setCookie(...cookieJSON);
 
@@ -117,13 +124,9 @@ const checkInAndGetStatus = async (cookie) => {
             const { data: { email, phone, leftDays } = {} } = await statusRes.json();
             let account = '未知账号';
             if (email) {
-                account = email.replace(/^(.)(.*)(.@.*)$/,
-                    (_, a, b, c) => a + b.replace(/./g, '*') + c
-                );
+                account = email.replace(/^(.)(.*)(.@.*)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c);
             } else if (phone) {
-                account = phone.replace(/^(.)(.*)(.)$/,
-                    (_, a, b, c) => a + b.replace(/./g, '*') + c
-                );
+                account = phone.replace(/^(.)(.*)(.)$/, (_, a, b, c) => a + b.replace(/./g, '*') + c);
             }
             ret[INFO.account] = account;
             ret[INFO.leftDays] = parseInt(leftDays);
@@ -133,7 +136,6 @@ const checkInAndGetStatus = async (cookie) => {
     }, INFO);
 
     await browser.close();
-
     return info;
 };
 
@@ -155,13 +157,10 @@ const pushplus = (token, infos) => {
         data
     }).catch((error) => {
         if (error.response) {
-            // 请求成功发出且服务器也响应了状态码，但状态代码超出了 2xx 的范围
             console.warn(`PUSHPLUS推送 请求失败，状态码：${error.response.status}`);
         } else if (error.request) {
-            // 请求已经成功发起，但没有收到响应
             console.warn('PUSHPLUS推送 网络错误');
         } else {
-            // 发送请求时出了点问题
             console.log('Axios Error', error.message);
         }
     });
@@ -171,7 +170,6 @@ const GLaDOSCheckIn = async () => {
     try {
         if (checkCOOKIES(process.env.COOKIES)) {
             const cookies = process.env.COOKIES.split('&&');
-
             const infos = await Promise.all(cookies.map(cookie => checkInAndGetStatus(cookie)));
             console.log('infos', infos);
 
