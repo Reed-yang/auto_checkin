@@ -1,50 +1,56 @@
 name: GLaDOS-CheckIn
+
 on:
-  # 可手动触发工作流程
   workflow_dispatch:
-  # push时触发工作流程
   push:
-    # 分支 现在默认是main，而不是master
     branches: [ main ]
-    # 将工作流程配置为在至少一个文件不匹配paths-ignore的paths时运行
-    # 忽略README.md和imgs文件夹
     paths-ignore: 
       - 'README.md'
       - 'imgs/**'
-  # 定时触发工作流程
   schedule:
-    # UTC 1点30分(北京时间 9点30分)
     - cron: 30 1 * * *
-  # 标星时触发工作流程
   watch:
     types: [started]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Checks out a copy of your repository on the ubuntu-latest machine
-      # 必须，不然到执行 node checkin.js 时会报错
       - uses: actions/checkout@v2
+
+      - name: Install dependencies for Puppeteer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget curl
+          sudo apt-get install -y libx11-dev libx11-xcb-dev libxcomposite-dev \
+                                libxdamage-dev libxrandr-dev libasound2 libatk1.0-0 \
+                                libcups2 libgdk-pixbuf2.0-0 libnspr4 libnss3 libxtst6 \
+                                libappindicator3-1 libgbm-dev libxss1 libgdk-pixbuf2.0-0
+
       - name: setup Node.js
-        # 理论上也可以自己命令行安装node
         uses: actions/setup-node@v1
         with:
           node-version: '16.x'
+
       - name: install axios
         run: npm install axios
-        # 安装 puppeteer-extra-plugin-stealth 绕过检测
+
       - name: install puppeteer-extra-plugin-stealth
         run: npm install puppeteer puppeteer-extra puppeteer-extra-plugin-stealth
+
+      - name: Update Puppeteer to the latest version
+        run: npm install puppeteer@latest
+
       - name: CheckIn
         run: node checkin.js
-        # 设置环境变量
         env:
+          DEBUG: puppeteer:*
           PUSHPLUS: ${{ secrets.PUSHPLUS }}
           COOKIES: ${{ secrets.COOKIES }}
-        # 保持 action 活跃
+
       - name: keep alive
-        uses: gautamkrishnar/keepalive-workflow@master # using the workflow with default settings
-        # 删除工作流记录
+        uses: gautamkrishnar/keepalive-workflow@master
+
       - name: Delete workflow runs
         uses: Mattraks/delete-workflow-runs@v2
         with:
